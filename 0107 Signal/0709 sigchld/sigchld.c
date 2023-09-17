@@ -1,4 +1,4 @@
-//父进程使用SICCHLD信号完成对子进程的回收
+//父进程使用SIGCHLD信号完成对子进程的回收
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,12 +7,12 @@
 #include <signal.h>
 #include <sys/wait.h>
 
+//SIGCHLD信号处理函数
 void waitchild(int signo)
 {
 	pid_t wpid;
 
-	//回收子进程
-	while(1)
+	while(1) //完成对多个子进程的回收
 	{
 		wpid = waitpid(-1, NULL, WNOHANG);
 		if(wpid>0)
@@ -32,10 +32,10 @@ void waitchild(int signo)
 	}
 }
 
-int main()
+int main(int argc, char *argv[])
 {
+	pid_t pid;
 	int i = 0;
-	int n = 3;
 
 	//将SIGCHLD信号阻塞
 	sigset_t mask;
@@ -43,68 +43,60 @@ int main()
 	sigaddset(&mask, SIGCHLD);
 	sigprocmask(SIG_BLOCK, &mask, NULL);
 
-	for(i=0; i<n; i++)	
+	for(i=0; i<3; i++)
 	{
-		//fork子进程
-		pid_t pid = fork();
-		if(pid<0) //fork失败的情况
+		pid = fork();
+		if(pid<0)
 		{
 			perror("fork error");
 			return -1;
 		}
-		else if(pid>0) //父进程
+		else if(pid>0)
 		{
-			printf("father: fpid==[%d], cpid==[%d]\n", getpid(), pid);
-			sleep(1);
+			printf("father process, pid==[%d], child pid==[%d]\n", getpid(), pid);	
 		}
-		else if(pid==0) //子进程
+		else
 		{
-			printf("child: fpid==[%d], cpid==[%d]\n", getppid(), getpid());
+			printf("child process, father pid==[%d], pid==[%d]\n", getppid(), getpid());
 			break;
 		}
 	}
 
-	//父进程
+	if(i==0)
+	{
+		printf("the first child, pid==[%d]\n", getpid());
+	}
+
+	if(i==1)
+	{
+		printf("the second child, pid==[%d]\n", getpid());
+		sleep(10);
+	}
+
+	if(i==2)
+	{
+		printf("the third child, pid==[%d]\n", getpid());
+	}
+
 	if(i==3)
 	{
-		printf("[%d]:father: fpid==[%d]\n", i, getpid());
-		//signal(SIGCHLD, waitchild);
-		//注册信号处理函数
+		printf("the father, pid==[%d]\n", getpid());
+
+		//注册SIGCHLD信号处理函数
 		struct sigaction act;
-		act.sa_handler = waitchild;
+		act.sa_handler = waitchild;//回调函数
 		sigemptyset(&act.sa_mask);
 		act.sa_flags = 0;
-		sleep(5);
+		sleep(5);//3个子进程全部变成僵尸进程
 		sigaction(SIGCHLD, &act, NULL);
 
-		//解除对SIGCHLD信号的阻塞
+		//完成SIGCHLD信号的注册后, 解除对SIGCHLD信号的阻塞
 		sigprocmask(SIG_UNBLOCK, &mask, NULL);
 
 		while(1)
 		{
 			sleep(1);
 		}
-	}
-
-	//第1个子进程
-	if(i==0)
-	{
-		printf("[%d]:child: cpid==[%d]\n", i, getpid());
-		//sleep(1);
-	}
-
-	//第2个子进程
-	if(i==1)
-	{
-		printf("[%d]:child: cpid==[%d]\n", i, getpid());
-		sleep(1);
-	}
-
-	//第3个子进程
-	if(i==2)
-	{
-		printf("[%d]:child: cpid==[%d]\n", i, getpid());
-		sleep(1);
 	}
 
 	return 0;
