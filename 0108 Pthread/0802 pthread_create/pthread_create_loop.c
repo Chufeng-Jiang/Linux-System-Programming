@@ -26,7 +26,9 @@ int main()
 	pthread_t thread[5];
 	for(i=0; i<n; i++)
 	{
-		arr[i] = i;
+		arr[i] = i;//定义一个数组，每个线程访问不同的内存
+		
+		//将arr[i]传给最后一个参数，这样在打印的时候就是不同的值
 		ret = pthread_create(&thread[i], NULL, mythread, &arr[i]);
 		if(ret!=0)
 		{
